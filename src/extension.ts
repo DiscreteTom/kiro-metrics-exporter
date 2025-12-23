@@ -17,12 +17,17 @@ export function activate(context: vscode.ExtensionContext) {
         metricsService.exportMetrics();
     });
 
+    // Register the test upload command
+    const testUploadCommand = vscode.commands.registerCommand('metricsExporter.testUpload', () => {
+        metricsService.testFileUpload();
+    });
+
     // Register the refresh command
     const refreshCommand = vscode.commands.registerCommand('metricsExporter.refresh', () => {
         provider.refresh();
     });
 
-    context.subscriptions.push(exportCommand, refreshCommand);
+    context.subscriptions.push(exportCommand, testUploadCommand, refreshCommand);
 }
 
 export function deactivate() {
