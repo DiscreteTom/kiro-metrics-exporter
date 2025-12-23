@@ -49,6 +49,7 @@ export class MetricsService {
         const config = vscode.workspace.getConfiguration('metricsExporter');
         const accessKey = config.get<string>('aws.accessKey');
         const secretKey = config.get<string>('aws.secretKey');
+        const region = config.get<string>('aws.region', 'us-east-1');
 
         if (!accessKey || !secretKey) {
             vscode.window.showErrorMessage('AWS credentials not configured. Please set Access Key and Secret Key.');
@@ -56,7 +57,7 @@ export class MetricsService {
         }
 
         this.s3Client = new S3Client({
-            region: 'us-east-1', // Default region, can be made configurable
+            region: region,
             credentials: {
                 accessKeyId: accessKey,
                 secretAccessKey: secretKey
