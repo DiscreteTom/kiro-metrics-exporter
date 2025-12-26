@@ -1,63 +1,58 @@
 # Kiro Metrics Exporter
 
-A VSCode extension that exports directory metrics to AWS S3.
+A VSCode extension that exports Kiro IDE usage metrics to AWS S3.
 
 ## Features
 
-- **Configuration Panel**: Left sidebar panel for AWS credentials management
-- **Directory Scanning**: Scans workspace directories and extracts metrics
-- **S3 Upload**: Uploads metrics data to AWS S3 (currently mock implementation)
-- **Test File Upload**: Upload any local file to S3 for testing credentials and connectivity
+- **Configuration Panel**: Left sidebar panel for AWS configuration management
+- **Metrics Collection**: Scans Kiro agent directory and extracts usage metrics
+- **S3 Upload**: Uploads metrics data to AWS S3 in CSV format
+- **Time-filtered Exports**: Upload metrics for last 7 days or last 30 days
+- **AWS Identity Store Integration**: Resolves user IDs from usernames
 
 ## Setup
 
 1. Install the extension
 2. Open the "Metrics Exporter" panel in the Explorer sidebar
-3. Configure your AWS credentials:
-   - Click on "Access Key" to set your AWS Access Key
-   - Click on "Secret Key" to set your AWS Secret Key
-4. Test your setup:
-   - Click the file upload button (📤) to test uploading a specific file
-   - Click the cloud upload button (☁️) to export metrics
+3. Configure your AWS settings by clicking on each item:
+   - **Access Key**: Your AWS Access Key ID
+   - **Secret Key**: Your AWS Secret Access Key
+   - **S3 Prefix**: Full S3 path (e.g., `s3://bucket/prefix/AWSLogs/accountId/KiroLogs/by_user_analytic/Region/`)
+   - **S3 Region**: AWS region for S3 operations (e.g., `us-east-1`)
+   - **Identity Store Region**: AWS region for Identity Store operations (e.g., `us-east-1`)
+   - **Identity Store ID**: Your AWS Identity Store ID
+   - **User ID**: Set by entering your username (automatically resolved via Identity Store)
 
-## Using the Test Upload Feature
+## Usage
 
-The test upload feature allows you to upload any local file to S3:
+### Export Metrics
+Use the buttons in the panel header:
+- **Upload Last 7 Days**: Export metrics for the past week (T-7 to T-1)
+- **Upload Last 30 Days**: Export metrics for the past month (T-30 to T-1)
 
-1. **Click the Test Upload button** (📤) in the panel header
-2. **Enter local file path**: 
-   - Absolute path: `C:\path\to\file.txt`
-   - Relative to workspace: `./README.md` or `src/file.js`
-3. **Enter S3 destination**: 
-   - Format: `bucket-name/folder/filename.ext`
-   - Example: `my-test-bucket/uploads/test-file.txt`
-4. **File will be uploaded** with proper content type and metadata
+### CSV Output Format
+The extension generates CSV files with the following schema:
+- `UserId`: AWS Identity Center User ID
+- `Date`: Date in MM-DD-YYYY format
+- `Chat_AICodeLines`: Net lines of AI-generated code
+- `Chat_MessagesSent`: Number of executions/messages sent
+- Other columns set to 0 (for compatibility with existing analytics)
 
-The extension will:
-- ✅ Validate file exists locally
-- ✅ Read file content and size
-- ✅ Determine appropriate content type
-- ✅ Upload to S3 with metadata (original path, upload time, file size)
-- ✅ Show detailed success/error messages
+### S3 Path Structure
+Files are uploaded following this pattern:
+```
+s3://bucket/prefix/AWSLogs/accountId/KiroLogs/by_user_analytic/Region/year/month/day/00/kiro-ide-{userid}_timestamp.csv
+```
 
-## Setup
+## Requirements
 
-1. Install the extension
-2. Open the "Metrics Exporter" panel in the Explorer sidebar
-3. Configure your AWS credentials:
-   - Click on "Access Key" to set your AWS Access Key
-   - Click on "Secret Key" to set your AWS Secret Key
-4. Click the cloud upload button to export metrics
-
-## Current Implementation
-
-This is a basic implementation with:
-- ✅ VSCode extension structure
-- ✅ Left sidebar configuration panel
-- ✅ AWS credential input fields
-- ✅ Mock directory scanning
-- ✅ Mock S3 upload functionality
-- ✅ **NEW**: Real S3 file upload testing functionality
+- AWS credentials with permissions for:
+  - S3: `PutObject` access to the target bucket
+  - Identity Store: `GetUserId` access to resolve usernames
+- Kiro IDE with agent activity data in the platform-specific directory:
+  - Windows: `%APPDATA%\Kiro\User\globalStorage\kiro.kiroagent`
+  - macOS: `~/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent`
+  - Linux: `~/.config/Kiro/User/globalStorage/kiro.kiroagent`
 
 ## Development
 
@@ -77,12 +72,4 @@ npm run watch
 1. Press `F5` to open a new Extension Development Host window
 2. The extension will be loaded automatically
 3. Look for "Metrics Exporter" in the Explorer sidebar
-4. Test the configuration and export functionality
-
-## Next Steps
-
-- Implement actual S3 upload functionality
-- Add configurable S3 bucket and region settings
-- Enhance metrics collection with more detailed analysis
-- Add error handling and validation
-- Implement proper credential encryption
+4. Configure AWS settings and test the export functionality
