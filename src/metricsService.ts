@@ -68,6 +68,47 @@ export class MetricsService {
             }
         });
 
+        // Register commands for setting regions
+        vscode.commands.registerCommand('metricsExporter.setS3Region', async () => {
+            const s3Region = await vscode.window.showInputBox({
+                prompt: 'Enter S3 Region',
+                placeHolder: 'e.g., us-east-1, us-west-2, eu-west-1',
+                value: vscode.workspace.getConfiguration('metricsExporter').get<string>('aws.s3Region', 'us-east-1'),
+                validateInput: (value) => {
+                    if (!value || value.trim() === '') {
+                        return 'Please enter an AWS region';
+                    }
+                    return null;
+                }
+            });
+            
+            if (s3Region) {
+                await vscode.workspace.getConfiguration().update('metricsExporter.aws.s3Region', s3Region, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage('S3 region saved');
+                this.refreshTreeView();
+            }
+        });
+
+        vscode.commands.registerCommand('metricsExporter.setIdentityStoreRegion', async () => {
+            const identityStoreRegion = await vscode.window.showInputBox({
+                prompt: 'Enter Identity Store Region',
+                placeHolder: 'e.g., us-east-1, us-west-2, eu-west-1',
+                value: vscode.workspace.getConfiguration('metricsExporter').get<string>('aws.identityStoreRegion', 'us-east-1'),
+                validateInput: (value) => {
+                    if (!value || value.trim() === '') {
+                        return 'Please enter an AWS region';
+                    }
+                    return null;
+                }
+            });
+            
+            if (identityStoreRegion) {
+                await vscode.workspace.getConfiguration().update('metricsExporter.aws.identityStoreRegion', identityStoreRegion, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage('Identity Store region saved');
+                this.refreshTreeView();
+            }
+        });
+
         vscode.commands.registerCommand('metricsExporter.setUserId', async () => {
             const username = await vscode.window.showInputBox({
                 prompt: 'Enter Username',
@@ -129,7 +170,8 @@ export class MetricsService {
         const config = vscode.workspace.getConfiguration('metricsExporter');
         const accessKey = config.get<string>('aws.accessKey');
         const secretKey = config.get<string>('aws.secretKey');
-        const region = config.get<string>('aws.region', 'us-east-1');
+        const s3Region = config.get<string>('aws.s3Region', 'us-east-1');
+        const identityStoreRegion = config.get<string>('aws.identityStoreRegion', 'us-east-1');
         const s3Prefix = config.get<string>('aws.s3Prefix');
         const userId = config.get<string>('aws.userId');
         const identityStoreId = config.get<string>('aws.identityStoreId');
@@ -160,12 +202,12 @@ export class MetricsService {
         };
 
         this.s3Client = new S3Client({
-            region: region,
+            region: s3Region,
             credentials: credentials
         });
 
         this.identityStoreClient = new IdentitystoreClient({
-            region: region,
+            region: identityStoreRegion,
             credentials: credentials
         });
 
@@ -179,7 +221,7 @@ export class MetricsService {
         const config = vscode.workspace.getConfiguration('metricsExporter');
         const accessKey = config.get<string>('aws.accessKey');
         const secretKey = config.get<string>('aws.secretKey');
-        const region = config.get<string>('aws.region', 'us-east-1');
+        const identityStoreRegion = config.get<string>('aws.identityStoreRegion', 'us-east-1');
         const identityStoreId = config.get<string>('aws.identityStoreId');
 
         if (!accessKey || !secretKey) {
@@ -193,7 +235,7 @@ export class MetricsService {
         // Initialize Identity Store client if not already done
         if (!this.identityStoreClient) {
             this.identityStoreClient = new IdentitystoreClient({
-                region: region,
+                region: identityStoreRegion,
                 credentials: {
                     accessKeyId: accessKey,
                     secretAccessKey: secretKey

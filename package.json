@@ -33,10 +33,16 @@
           "description": "AWS Secret Access Key for S3 uploads",
           "scope": "application"
         },
-        "metricsExporter.aws.region": {
+        "metricsExporter.aws.s3Region": {
           "type": "string",
           "default": "us-east-1",
           "description": "AWS region for S3 operations",
+          "scope": "application"
+        },
+        "metricsExporter.aws.identityStoreRegion": {
+          "type": "string",
+          "default": "us-east-1",
+          "description": "AWS region for Identity Store operations",
           "scope": "application"
         },
         "metricsExporter.aws.s3Prefix": {
@@ -80,6 +86,14 @@
       {
         "command": "metricsExporter.setS3Prefix",
         "title": "Metrics Exporter: Set S3 Prefix"
+      },
+      {
+        "command": "metricsExporter.setS3Region",
+        "title": "Metrics Exporter: Set S3 Region"
+      },
+      {
+        "command": "metricsExporter.setIdentityStoreRegion",
+        "title": "Metrics Exporter: Set Identity Store Region"
       },
       {
         "command": "metricsExporter.setUserId",
