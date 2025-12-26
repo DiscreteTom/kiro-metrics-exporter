@@ -1,5 +1,7 @@
 # Kiro Metrics Exporter
 
+[![Open VSX Version](https://img.shields.io/open-vsx/v/DiscreteTom/kiro-metrics-exporter)](https://open-vsx.org/extension/DiscreteTom/kiro-metrics-exporter)
+
 A VSCode extension that exports Kiro IDE usage metrics to AWS S3.
 
 ## Features
@@ -26,12 +28,16 @@ A VSCode extension that exports Kiro IDE usage metrics to AWS S3.
 ## Usage
 
 ### Export Metrics
+
 Use the buttons in the panel header:
+
 - **Upload Last 7 Days**: Export metrics for the past week (T-7 to T-1)
 - **Upload All Till Yesterday**: Export all available metrics data up to yesterday (T-1)
 
 ### CSV Output Format
+
 The extension generates CSV files with the following schema:
+
 - `UserId`: AWS Identity Center User ID
 - `Date`: Date in MM-DD-YYYY format
 - `Chat_AICodeLines`: Net lines of AI-generated code
@@ -39,7 +45,9 @@ The extension generates CSV files with the following schema:
 - Other columns set to 0 (for compatibility with existing analytics)
 
 ### S3 Path Structure
+
 Files are uploaded following this pattern:
+
 ```
 s3://bucket/prefix/AWSLogs/accountId/KiroLogs/by_user_analytic/Region/year/month/day/00/kiro-ide-{userid}.csv
 ```
