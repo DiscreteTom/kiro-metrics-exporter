@@ -106,22 +106,12 @@
       {
         "command": "metricsExporter.uploadLastWeek",
         "title": "Metrics Exporter: Upload Last Week"
-      },
-      {
-        "command": "metricsExporter.testUpload",
-        "title": "Metrics Exporter: Test File Upload",
-        "icon": "$(cloud-upload)"
       }
     ],
     "menus": {
       "view/title": [
         {
           "command": "metricsExporter.exportMetrics",
-          "when": "view == metricsExporter",
-          "group": "navigation"
-        },
-        {
-          "command": "metricsExporter.testUpload",
           "when": "view == metricsExporter",
           "group": "navigation"
         },
