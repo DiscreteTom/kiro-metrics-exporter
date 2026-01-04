@@ -2,22 +2,11 @@
   "name": "kiro-metrics-exporter",
   "displayName": "Kiro Metrics Exporter",
   "description": "Export metrics to AWS S3",
-  "version": "1.0.0",
-  "publisher": "DiscreteTom",
-  "author": {
-    "name": "DiscreteTom",
-    "email": "discrete_tom@outlook.com"
-  },
+  "version": "1.1.4",
   "repository": {
     "type": "git",
-    "url": "https://github.com/DiscreteTom/kiro-metrics-exporter.git"
+    "url": "https://github.com/example/kiro-metrics-exporter.git"
   },
-  "bugs": {
-    "url": "https://github.com/DiscreteTom/kiro-metrics-exporter/issues"
-  },
-  "homepage": "https://github.com/DiscreteTom/kiro-metrics-exporter#readme",
-  "license": "MIT",
-  "keywords": ["vscode", "aws", "s3", "metrics", "kiro"],
   "engines": {
     "vscode": "^1.103.0"
   },
@@ -32,55 +21,100 @@
     "configuration": {
       "title": "Metrics Exporter",
       "properties": {
+        "metricsExporter.version": {
+          "type": "null",
+          "markdownDescription": "---\n\n### 📊 Kiro Metrics Exporter v1.1.4\n\n---",
+          "scope": "application",
+          "order": 0
+        },
         "metricsExporter.aws.accessKey": {
           "type": "string",
           "default": "",
-          "description": "AWS Access Key ID for S3 uploads",
-          "scope": "application"
+          "description": "[Step 1] AWS Access Key ID",
+          "markdownDescription": "**[Step 1]** AWS Access Key ID for authentication",
+          "scope": "application",
+          "order": 1
         },
         "metricsExporter.aws.secretKey": {
           "type": "string",
           "default": "",
-          "description": "AWS Secret Access Key for S3 uploads",
-          "scope": "application"
-        },
-        "metricsExporter.aws.s3Region": {
-          "type": "string",
-          "default": "us-east-1",
-          "description": "AWS region for S3 operations",
-          "scope": "application"
-        },
-        "metricsExporter.aws.identityStoreRegion": {
-          "type": "string",
-          "default": "us-east-1",
-          "description": "AWS region for Identity Store operations",
-          "scope": "application"
-        },
-        "metricsExporter.aws.s3Prefix": {
-          "type": "string",
-          "default": "",
-          "description": "S3 prefix path (e.g., s3://bucket/prefix/AWSLogs/accountId/KiroLogs/by_user_analytic/Region/)",
-          "scope": "application"
-        },
-        "metricsExporter.aws.userId": {
-          "type": "string",
-          "default": "",
-          "description": "AWS Identity Center User ID",
-          "scope": "application"
+          "description": "[Step 1] AWS Secret Access Key",
+          "markdownDescription": "**[Step 1]** AWS Secret Access Key for authentication",
+          "scope": "application",
+          "order": 2
         },
         "metricsExporter.aws.identityStoreId": {
           "type": "string",
           "default": "",
-          "description": "AWS Identity Store ID for user lookup",
-          "scope": "application"
+          "description": "[Step 1] AWS Identity Store ID",
+          "markdownDescription": "**[Step 1]** AWS Identity Store ID for user lookup (e.g., d-1234567890)",
+          "scope": "application",
+          "order": 3
+        },
+        "metricsExporter.aws.identityStoreRegion": {
+          "type": "string",
+          "default": "us-east-1",
+          "description": "[Step 1] AWS region for Identity Store",
+          "markdownDescription": "**[Step 1]** AWS region for Identity Store operations",
+          "scope": "application",
+          "order": 4
+        },
+        "metricsExporter.aws.username": {
+          "type": "string",
+          "default": "",
+          "description": "[Step 2] Username for resolving User ID & Display Name",
+          "markdownDescription": "**[Step 2]** Username for resolving User ID & Display Name. After entering username, [👉 click here to resolve User ID & Display Name](command:metricsExporter.resolveUserId)",
+          "scope": "application",
+          "order": 5
+        },
+        "metricsExporter.aws.userId": {
+          "type": "string",
+          "default": "",
+          "description": "[Step 2] User ID (auto-resolved)",
+          "markdownDescription": "**[Step 2]** AWS Identity Center User ID *(auto-resolved from username)*",
+          "scope": "application",
+          "order": 6
+        },
+        "metricsExporter.aws.displayName": {
+          "type": "string",
+          "default": "",
+          "description": "[Step 2] Display Name (auto-resolved)",
+          "markdownDescription": "**[Step 2]** User Display Name *(auto-resolved from username)*",
+          "scope": "application",
+          "order": 7
+        },
+        "metricsExporter.aws.s3Prefix": {
+          "type": "string",
+          "default": "",
+          "description": "[Step 3] S3 prefix path",
+          "markdownDescription": "**[Step 3]** S3 prefix path (e.g., `s3://bucket/prefix/`). After entering, [👉 click here to check S3 write permission](command:metricsExporter.checkS3Permission)",
+          "scope": "application",
+          "order": 8
+        },
+        "metricsExporter.aws.s3Region": {
+          "type": "string",
+          "default": "us-east-1",
+          "description": "[Step 3] AWS region for S3",
+          "markdownDescription": "**[Step 3]** AWS region for S3 operations",
+          "scope": "application",
+          "order": 9
         }
       }
     },
-    "views": {
-      "explorer": [
+    "viewsContainers": {
+      "activitybar": [
         {
           "id": "metricsExporter",
-          "name": "Metrics Exporter",
+          "title": "Metrics Exporter",
+          "icon": "$(graph)"
+        }
+      ]
+    },
+    "views": {
+      "metricsExporter": [
+        {
+          "id": "metricsExporter",
+          "name": "AWS Configuration",
           "when": "true"
         }
       ]
@@ -107,21 +141,41 @@
         "title": "Metrics Exporter: Set Identity Store Region"
       },
       {
-        "command": "metricsExporter.setUserId",
-        "title": "Metrics Exporter: Set User ID"
+        "command": "metricsExporter.setUsername",
+        "title": "Metrics Exporter: Set Username"
+      },
+      {
+        "command": "metricsExporter.resolveUserId",
+        "title": "Metrics Exporter: Resolve User ID"
       },
       {
         "command": "metricsExporter.setIdentityStoreId",
         "title": "Metrics Exporter: Set Identity Store ID"
       },
       {
+        "command": "metricsExporter.checkS3Permission",
+        "title": "Metrics Exporter: Check S3 Write Permission"
+      },
+      {
+        "command": "metricsExporter.openLog",
+        "title": "Metrics Exporter: Open Log File"
+      },
+      {
+        "command": "metricsExporter.openLogFolder",
+        "title": "Metrics Exporter: Open Log Folder"
+      },
+      {
+        "command": "metricsExporter.openSettings",
+        "title": "Metrics Exporter: Open Settings"
+      },
+      {
         "command": "metricsExporter.uploadLastWeek",
-        "title": "Upload Last 7 Days",
-        "icon": "$(cloud-upload)"
+        "title": "⏱️ Upload Last 7 Days",
+        "icon": "$(history)"
       },
       {
         "command": "metricsExporter.uploadAllTillYesterday",
-        "title": "Upload All Till Yesterday",
+        "title": "📤 Upload All Till Yesterday",
         "icon": "$(cloud-upload)"
       }
     ],

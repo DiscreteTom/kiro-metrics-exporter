@@ -1,18 +1,29 @@
 import * as vscode from 'vscode';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { IdentitystoreClient, GetUserIdCommand } from '@aws-sdk/client-identitystore';
+import { IdentitystoreClient, GetUserIdCommand, DescribeUserCommand } from '@aws-sdk/client-identitystore';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { scanKiroAgentDirectory, generateReport, exportToJson } from './extractor';
 import { MetricsExport } from './types';
+import { logger } from './logger';
+
+interface UserInfo {
+    userId: string;
+    displayName: string;
+}
 
 export class MetricsService {
     private s3Client: S3Client | null = null;
     private identityStoreClient: IdentitystoreClient | null = null;
+    private disposables: vscode.Disposable[] = [];
 
     constructor() {
         this.registerCommands();
+    }
+
+    dispose() {
+        this.disposables.forEach(d => d.dispose());
     }
 
     private registerCommands() {
@@ -109,10 +120,13 @@ export class MetricsService {
             }
         });
 
-        vscode.commands.registerCommand('metricsExporter.setUserId', async () => {
+        // Set Username (just save the username, no resolution)
+        vscode.commands.registerCommand('metricsExporter.setUsername', async () => {
+            const currentUsername = vscode.workspace.getConfiguration('metricsExporter').get<string>('aws.username', '');
             const username = await vscode.window.showInputBox({
                 prompt: 'Enter Username',
                 placeHolder: 'e.g., john.doe or john.doe@company.com',
+                value: currentUsername,
                 validateInput: (value) => {
                     if (!value || value.trim() === '') {
                         return 'Please enter a username';
@@ -122,14 +136,52 @@ export class MetricsService {
             });
             
             if (username) {
-                try {
-                    const userId = await this.getUserIdByUsername(username.trim());
-                    await vscode.workspace.getConfiguration().update('metricsExporter.aws.userId', userId, vscode.ConfigurationTarget.Global);
-                    vscode.window.showInformationMessage(`User ID resolved and saved: ${userId}`);
-                    this.refreshTreeView();
-                } catch (error) {
-                    vscode.window.showErrorMessage(`Failed to resolve user ID: ${error}`);
-                }
+                await vscode.workspace.getConfiguration().update('metricsExporter.aws.username', username.trim(), vscode.ConfigurationTarget.Global);
+                // Clear the resolved userId when username changes
+                await vscode.workspace.getConfiguration().update('metricsExporter.aws.userId', '', vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Username saved: ${username.trim()}. Click "Resolve User ID" to get the User ID.`);
+                this.refreshTreeView();
+            }
+        });
+
+        // Resolve User ID & Display Name from saved username
+        vscode.commands.registerCommand('metricsExporter.resolveUserId', async () => {
+            const config = vscode.workspace.getConfiguration('metricsExporter');
+            const username = config.get<string>('aws.username', '');
+            const accessKey = config.get<string>('aws.accessKey');
+            const secretKey = config.get<string>('aws.secretKey');
+            const identityStoreId = config.get<string>('aws.identityStoreId');
+
+            // Check prerequisites
+            if (!accessKey || !secretKey) {
+                vscode.window.showErrorMessage('❌ Please configure AWS Access Key and Secret Key first');
+                return;
+            }
+
+            if (!identityStoreId) {
+                vscode.window.showErrorMessage('❌ Please configure Identity Store ID first');
+                return;
+            }
+
+            if (!username) {
+                vscode.window.showErrorMessage('❌ Please set Username first');
+                return;
+            }
+
+            try {
+                vscode.window.showInformationMessage(`🔄 Resolving User ID & Display Name for: ${username}...`);
+                const userInfo = await this.getUserInfoByUsername(username);
+                await vscode.workspace.getConfiguration().update('metricsExporter.aws.userId', userInfo.userId, vscode.ConfigurationTarget.Global);
+                await vscode.workspace.getConfiguration().update('metricsExporter.aws.displayName', userInfo.displayName, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`✅ Resolved - User ID: ${userInfo.userId}, Display Name: ${userInfo.displayName}`);
+                this.refreshTreeView();
+            } catch (error: any) {
+                // Clear User ID and Display Name on failure
+                await vscode.workspace.getConfiguration().update('metricsExporter.aws.userId', '', vscode.ConfigurationTarget.Global);
+                await vscode.workspace.getConfiguration().update('metricsExporter.aws.displayName', '', vscode.ConfigurationTarget.Global);
+                const errorMsg = error.message || String(error);
+                vscode.window.showErrorMessage(`❌ Failed to resolve: ${errorMsg}`);
+                this.refreshTreeView();
             }
         });
 
@@ -152,18 +204,143 @@ export class MetricsService {
             }
         });
 
+        // Check S3 write permission
+        vscode.commands.registerCommand('metricsExporter.checkS3Permission', async () => {
+            await this.checkS3WritePermission();
+        });
+
+        // Open log file
+        vscode.commands.registerCommand('metricsExporter.openLog', async () => {
+            const logFile = logger.getCurrentLogFile();
+            if (fs.existsSync(logFile)) {
+                const doc = await vscode.workspace.openTextDocument(logFile);
+                await vscode.window.showTextDocument(doc);
+            } else {
+                vscode.window.showInformationMessage('No log file found for today. Logs will be created when you perform an upload operation.');
+            }
+        });
+
+        // Open log folder
+        vscode.commands.registerCommand('metricsExporter.openLogFolder', async () => {
+            const logDir = logger.getLogDir();
+            if (!fs.existsSync(logDir)) {
+                fs.mkdirSync(logDir, { recursive: true });
+            }
+            vscode.env.openExternal(vscode.Uri.file(logDir));
+        });
+
+        // Open Settings
+        vscode.commands.registerCommand('metricsExporter.openSettings', async () => {
+            vscode.commands.executeCommand('workbench.action.openSettings', '@ext:undefined_publisher.kiro-metrics-exporter');
+        });
+
         // Register commands for time-filtered metrics export
         vscode.commands.registerCommand('metricsExporter.uploadLastWeek', async () => {
             await this.exportMetricsWithTimeFilter('lastWeek');
         });
 
         vscode.commands.registerCommand('metricsExporter.uploadAllTillYesterday', async () => {
-            await this.exportMetricsWithTimeFilter('allTillYesterday');
+            // Show confirmation dialog before uploading all data
+            const confirm = await vscode.window.showWarningMessage(
+                'Are you sure you want to Upload All? This may take a long time to complete. For daily routine work, it is recommended to use "Upload Last 7 Days" instead.',
+                { modal: true },
+                'Yes, Upload All',
+                'Cancel'
+            );
+            
+            if (confirm === 'Yes, Upload All') {
+                await this.exportMetricsWithTimeFilter('allTillYesterday');
+            }
         });
     }
 
     private refreshTreeView() {
         vscode.commands.executeCommand('metricsExporter.refresh');
+    }
+
+    /**
+     * Check S3 write permission by attempting to upload a test file
+     */
+    private async checkS3WritePermission(): Promise<void> {
+        const config = vscode.workspace.getConfiguration('metricsExporter');
+        const accessKey = config.get<string>('aws.accessKey');
+        const secretKey = config.get<string>('aws.secretKey');
+        const s3Region = config.get<string>('aws.s3Region', 'us-east-1');
+        const s3Prefix = config.get<string>('aws.s3Prefix');
+
+        // Check prerequisites
+        if (!accessKey || !secretKey) {
+            vscode.window.showErrorMessage('❌ Please configure AWS Access Key and Secret Key first (Step 1)');
+            return;
+        }
+
+        if (!s3Prefix) {
+            vscode.window.showErrorMessage('❌ Please configure S3 Prefix first');
+            return;
+        }
+
+        // Parse S3 prefix
+        const s3Match = s3Prefix.match(/^s3:\/\/([^\/]+)\/(.*)$/);
+        if (!s3Match) {
+            vscode.window.showErrorMessage('❌ Invalid S3 prefix format. Expected: s3://bucket-name/prefix/');
+            return;
+        }
+
+        const bucket = s3Match[1];
+        const basePath = s3Match[2].replace(/\/$/, '');
+
+        try {
+            vscode.window.showInformationMessage(`🔄 Checking S3 write permission for bucket: ${bucket}...`);
+
+            // Initialize S3 client
+            const s3Client = new S3Client({
+                region: s3Region,
+                credentials: {
+                    accessKeyId: accessKey,
+                    secretAccessKey: secretKey
+                }
+            });
+
+            // Try to upload a test file
+            const testKey = `${basePath}/.permission-test-${Date.now()}.txt`;
+            const testContent = `Permission test at ${new Date().toISOString()}`;
+
+            const putCommand = new PutObjectCommand({
+                Bucket: bucket,
+                Key: testKey,
+                Body: testContent,
+                ContentType: 'text/plain'
+            });
+
+            await s3Client.send(putCommand);
+
+            // If successful, try to delete the test file (optional cleanup)
+            try {
+                const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+                const deleteCommand = new DeleteObjectCommand({
+                    Bucket: bucket,
+                    Key: testKey
+                });
+                await s3Client.send(deleteCommand);
+            } catch {
+                // Ignore delete errors - write permission is confirmed
+            }
+
+            vscode.window.showInformationMessage(`✅ S3 write permission confirmed! Bucket: ${bucket}, Path: ${basePath}/`);
+        } catch (error: any) {
+            const errorMsg = error.message || String(error);
+            if (errorMsg.includes('AccessDenied') || errorMsg.includes('403')) {
+                vscode.window.showErrorMessage(`❌ No write permission to S3 bucket: ${bucket}. Please check IAM policy.`);
+            } else if (errorMsg.includes('NoSuchBucket') || errorMsg.includes('404')) {
+                vscode.window.showErrorMessage(`❌ S3 bucket not found: ${bucket}. Please check bucket name.`);
+            } else if (errorMsg.includes('InvalidAccessKeyId')) {
+                vscode.window.showErrorMessage(`❌ Invalid AWS Access Key. Please check your credentials.`);
+            } else if (errorMsg.includes('SignatureDoesNotMatch')) {
+                vscode.window.showErrorMessage(`❌ Invalid AWS Secret Key. Please check your credentials.`);
+            } else {
+                vscode.window.showErrorMessage(`❌ S3 permission check failed: ${errorMsg}`);
+            }
+        }
     }
 
     private initializeS3(): boolean {
@@ -215,9 +392,9 @@ export class MetricsService {
     }
 
     /**
-     * Get User ID by username using AWS Identity Store
+     * Get User ID and Display Name by username using AWS Identity Store
      */
-    private async getUserIdByUsername(username: string): Promise<string> {
+    private async getUserInfoByUsername(username: string): Promise<UserInfo> {
         const config = vscode.workspace.getConfiguration('metricsExporter');
         const accessKey = config.get<string>('aws.accessKey');
         const secretKey = config.get<string>('aws.secretKey');
@@ -244,7 +421,8 @@ export class MetricsService {
         }
 
         try {
-            const command = new GetUserIdCommand({
+            // Step 1: Get User ID by username
+            const getUserIdCommand = new GetUserIdCommand({
                 IdentityStoreId: identityStoreId,
                 AlternateIdentifier: {
                     UniqueAttribute: {
@@ -254,18 +432,29 @@ export class MetricsService {
                 }
             });
 
-            const response = await this.identityStoreClient.send(command);
+            const getUserIdResponse = await this.identityStoreClient.send(getUserIdCommand);
             
-            if (!response.UserId) {
+            if (!getUserIdResponse.UserId) {
                 throw new Error('User ID not found in response');
             }
 
-            return response.UserId;
+            const userId = getUserIdResponse.UserId;
+
+            // Step 2: Get Display Name by User ID
+            const describeUserCommand = new DescribeUserCommand({
+                IdentityStoreId: identityStoreId,
+                UserId: userId
+            });
+
+            const describeUserResponse = await this.identityStoreClient.send(describeUserCommand);
+            const displayName = describeUserResponse.DisplayName || describeUserResponse.UserName || username;
+
+            return { userId, displayName };
         } catch (error: any) {
             if (error.name === 'ResourceNotFoundException') {
                 throw new Error(`User '${username}' not found in Identity Store`);
             }
-            throw new Error(`Failed to get user ID: ${error.message || error}`);
+            throw new Error(`Failed to get user info: ${error.message || error}`);
         }
     }
 
@@ -315,10 +504,25 @@ export class MetricsService {
      * Export metrics with time filter
      */
     async exportMetricsWithTimeFilter(filterType: 'lastWeek' | 'allTillYesterday') {
+        const logContext = filterType === 'allTillYesterday' ? 'Upload All Till Yesterday' : 'Upload Last 7 Days';
         const filterLabel = filterType === 'allTillYesterday' ? 'all data till yesterday' : 'last week (T-7 to T-1)';
+        const totalStartTime = Date.now();
+        
+        // Get user info for logging
+        const config = vscode.workspace.getConfiguration('metricsExporter');
+        const username = config.get<string>('aws.username', '');
+        const userId = config.get<string>('aws.userId', '');
+        const s3Prefix = config.get<string>('aws.s3Prefix', '');
+        const s3Region = config.get<string>('aws.s3Region', 'us-east-1');
+        
+        logger.info(logContext, `========== Operation Started ==========`);
+        logger.info(logContext, `User: ${username}, UserId: ${userId}`);
+        logger.info(logContext, `S3 Prefix: ${s3Prefix}, Region: ${s3Region}`);
+        logger.info(logContext, `Filter Type: ${filterType}`);
         vscode.window.showInformationMessage(`Starting ${filterLabel} metrics export...`);
 
         if (!this.initializeS3()) {
+            logger.error(logContext, 'Failed - S3 initialization failed (missing credentials or configuration)');
             return;
         }
 
@@ -328,29 +532,40 @@ export class MetricsService {
             
             // Check if kiro.kiroagent directory exists
             if (!fs.existsSync(kiroAgentPath)) {
+                logger.error(logContext, `Failed - kiro.kiroagent directory not found at: ${kiroAgentPath}`);
                 vscode.window.showErrorMessage(`kiro.kiroagent directory not found at: ${kiroAgentPath}`);
                 return;
             }
 
+            // === Scanning Phase ===
+            const scanStartTime = Date.now();
+            logger.info(logContext, `[Scanning] Started - Directory: ${kiroAgentPath}`);
             vscode.window.showInformationMessage(`Scanning directory: ${kiroAgentPath}`);
 
             // Use the same scanning logic as the standalone version
             const results = scanKiroAgentDirectory(kiroAgentPath);
+            const scanElapsed = ((Date.now() - scanStartTime) / 1000).toFixed(2);
 
             if (results.length === 0) {
+                logger.warn(logContext, `[Scanning] Completed in ${scanElapsed}s - No valid code generation records found`);
                 vscode.window.showWarningMessage('No valid code generation records found');
                 return;
             }
+            
+            logger.info(logContext, `[Scanning] Completed in ${scanElapsed}s - Found ${results.length} execution records`);
 
             // Generate metrics export data
             const metricsData = exportToJson(results);
             
             // Apply time filter
             const { startDate, endDate } = this.getDateRange(filterType);
+            logger.info(logContext, `[Filter] Date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+            
             const filteredDailyStats = this.filterDailyStatsByDateRange(metricsData.dailyStats, startDate, endDate);
             
             // Check if we have data in the filtered range
             if (Object.keys(filteredDailyStats).length === 0) {
+                logger.warn(logContext, `[Filter] No data found for date range`);
                 vscode.window.showWarningMessage(`No data found for ${filterLabel}`);
                 return;
             }
@@ -361,12 +576,13 @@ export class MetricsService {
                 dailyStats: filteredDailyStats
             };
 
-            vscode.window.showInformationMessage(`Found ${Object.keys(filteredDailyStats).length} days of data for ${filterLabel}`);
+            const daysCount = Object.keys(filteredDailyStats).length;
+            logger.info(logContext, `[Filter] Found ${daysCount} days of data to upload`);
+            vscode.window.showInformationMessage(`Found ${daysCount} days of data for ${filterLabel}`);
             
-            // Get configuration
-            const config = vscode.workspace.getConfiguration('metricsExporter');
-            const s3Prefix = config.get<string>('aws.s3Prefix')!;
-            const userId = config.get<string>('aws.userId')!;
+            // === Upload Phase ===
+            const uploadStartTime = Date.now();
+            logger.info(logContext, `[Upload] Started - ${daysCount} files to upload`);
             
             // Upload separate CSV file for each day
             let uploadCount = 0;
@@ -375,20 +591,48 @@ export class MetricsService {
                     // Convert single day data to CSV
                     const csvData = this.convertDayMetricsToCSV(date, dailyStats, userId);
                     
+                    // Generate full S3 path for logging
+                    const { bucket, key } = this.generateS3Path(date, userId, s3Prefix);
+                    const fullS3Path = `s3://${bucket}/${key}`;
+                    
                     // Upload to S3 with proper path structure
                     await this.uploadDayCSVToS3(csvData, date, userId, s3Prefix, filterType);
                     uploadCount++;
-                } catch (error) {
+                    logger.info(logContext, `[Upload] ${uploadCount}/${daysCount} - ${date} -> ${fullS3Path}`);
+                } catch (error: any) {
+                    logger.error(logContext, `[Upload] Failed - ${date}: ${error.message || error}`);
                     vscode.window.showErrorMessage(`Failed to upload data for ${date}: ${error}`);
                 }
             }
             
-            // Also show a summary report in output channel
+            const uploadElapsed = ((Date.now() - uploadStartTime) / 1000).toFixed(2);
+            logger.info(logContext, `[Upload] Completed in ${uploadElapsed}s - Uploaded ${uploadCount}/${daysCount} files`);
+            
+            // === Generate and Log Report ===
             const report = generateReport(results);
             this.showReportInOutput(report);
             
+            // Log the full report
+            logger.info(logContext, `[Report] Kiro Code Generation Statistics:`);
+            const reportLines = report.split('\n');
+            for (const line of reportLines) {
+                if (line.trim()) {
+                    logger.info(logContext, `[Report] ${line}`);
+                }
+            }
+            
+            // === Summary ===
+            const totalElapsed = ((Date.now() - totalStartTime) / 1000).toFixed(2);
+            logger.info(logContext, `========== Operation Completed ==========`);
+            logger.info(logContext, `Total Time: ${totalElapsed}s (Scan: ${scanElapsed}s, Upload: ${uploadElapsed}s)`);
+            logger.info(logContext, `Files Uploaded: ${uploadCount}/${daysCount}`);
+            
             vscode.window.showInformationMessage(`${filterLabel} metrics exported successfully! Uploaded ${uploadCount} files.`);
-        } catch (error) {
+        } catch (error: any) {
+            const totalElapsed = ((Date.now() - totalStartTime) / 1000).toFixed(2);
+            logger.error(logContext, `========== Operation Failed ==========`);
+            logger.error(logContext, `Error: ${error.message || error}`);
+            logger.error(logContext, `Time elapsed before failure: ${totalElapsed}s`);
             vscode.window.showErrorMessage(`Export failed: ${error}`);
         }
     }
