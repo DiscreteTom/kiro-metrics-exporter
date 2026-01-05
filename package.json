@@ -3,10 +3,27 @@
   "displayName": "Kiro Metrics Exporter",
   "description": "Export metrics to AWS S3",
   "version": "1.1.0",
+  "publisher": "DiscreteTom",
+  "author": {
+    "name": "DiscreteTom",
+    "email": "discrete_tom@outlook.com"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/example/kiro-metrics-exporter.git"
+    "url": "https://github.com/DiscreteTom/kiro-metrics-exporter.git"
   },
+  "bugs": {
+    "url": "https://github.com/DiscreteTom/kiro-metrics-exporter/issues"
+  },
+  "homepage": "https://github.com/DiscreteTom/kiro-metrics-exporter#readme",
+  "license": "MIT",
+  "keywords": [
+    "vscode",
+    "aws",
+    "s3",
+    "metrics",
+    "kiro"
+  ],
   "engines": {
     "vscode": "^1.103.0"
   },
