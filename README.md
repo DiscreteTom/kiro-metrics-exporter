@@ -1,27 +1,8 @@
 # Kiro Metrics Exporter
 
-[![Version](https://img.shields.io/badge/version-1.1.4-blue.svg)](https://github.com/DiscreteTom/kiro-metrics-exporter)
+[![Open VSX Version](https://img.shields.io/open-vsx/v/DiscreteTom/kiro-metrics-exporter)](https://open-vsx.org/extension/DiscreteTom/kiro-metrics-exporter)
 
 A VSCode extension that exports Kiro IDE usage metrics to AWS S3.
-
-## Features
-
-- **📊 Dedicated Activity Bar Panel**: Quick access via sidebar icon
-- **📋 Step-by-Step Configuration**: 4-step organized workflow for easy setup
-- **👤 Automatic User Resolution**: Enter username, auto-resolve User ID & Display Name
-- **🔍 S3 Permission Check**: Verify write permissions before uploading
-- **📝 Operation Logging**: Detailed logs for troubleshooting
-- **📤 Time-filtered Exports**: Upload metrics for last 7 days or all history
-- **☁️ AWS S3 Integration**: Upload metrics in CSV format
-
-## What's New in v1.1.x
-
-- **Activity Bar Icon**: Dedicated sidebar icon for Metrics Exporter
-- **4-Step Configuration**: Organized into AWS Credentials → User Identity → S3 Config → Logs & Settings
-- **Username Resolution**: Auto-resolve User ID and Display Name from username
-- **S3 Permission Check**: Verify S3 write access before uploading
-- **Operation Logging**: Full logs saved to `~/.kiro-metrics-exporter/logs/`
-- **Settings Improvements**: Ordered items with clickable action links
 
 ## Setup
 
@@ -62,20 +43,20 @@ A VSCode extension that exports Kiro IDE usage metrics to AWS S3.
 
 Use the buttons in the panel header:
 
-| Button | Description |
-|--------|-------------|
-| ⏱️ Upload Last 7 Days | Export metrics for T-7 to T-1 |
+| Button                       | Description                         |
+| ---------------------------- | ----------------------------------- |
+| ⏱️ Upload Last 7 Days        | Export metrics for T-7 to T-1       |
 | 📤 Upload All Till Yesterday | Export all available data up to T-1 |
 
 ### CSV Output Format
 
-| Column | Description |
-|--------|-------------|
-| UserId | AWS Identity Center User ID |
-| Date | Date in MM-DD-YYYY format |
-| Chat_AICodeLines | Net lines of AI-generated code |
-| Chat_MessagesSent | Number of executions |
-| Other columns | Set to 0 for compatibility |
+| Column            | Description                    |
+| ----------------- | ------------------------------ |
+| UserId            | AWS Identity Center User ID    |
+| Date              | Date in MM-DD-YYYY format      |
+| Chat_AICodeLines  | Net lines of AI-generated code |
+| Chat_MessagesSent | Number of executions           |
+| Other columns     | Set to 0 for compatibility     |
 
 ### S3 Path Structure
 
@@ -84,6 +65,7 @@ Use the buttons in the panel header:
 ```
 
 Example:
+
 ```
 s3://bucket/prefix/AWSLogs/123456789012/KiroLogs/by_user_analytic/us-east-1/2025/01/04/00/kiro-ide-abc123.csv
 ```
@@ -95,6 +77,7 @@ s3://bucket/prefix/AWSLogs/123456789012/KiroLogs/by_user_analytic/us-east-1/2025
 Logs are saved to: `~/.kiro-metrics-exporter/logs/metrics-exporter-YYYY-MM-DD.log`
 
 Log contents include:
+
 - Operation start/end timestamps
 - User and S3 configuration
 - Scan progress and results
@@ -102,6 +85,7 @@ Log contents include:
 - Timing statistics
 
 Example log:
+
 ```
 [2025-01-04T10:30:00.000Z] [INFO] [Upload Last 7 Days] ========== Operation Started ==========
 [2025-01-04T10:30:00.001Z] [INFO] [Upload Last 7 Days] User: john.doe, UserId: xxx-xxx
@@ -113,20 +97,20 @@ Example log:
 
 ### AWS Permissions
 
-| Service | Permission | Purpose |
-|---------|------------|---------|
-| S3 | `PutObject` | Upload CSV files |
-| S3 | `DeleteObject` | Clean up test files (permission check) |
-| Identity Store | `GetUserId` | Resolve username to User ID |
-| Identity Store | `DescribeUser` | Get Display Name |
+| Service        | Permission     | Purpose                                |
+| -------------- | -------------- | -------------------------------------- |
+| S3             | `PutObject`    | Upload CSV files                       |
+| S3             | `DeleteObject` | Clean up test files (permission check) |
+| Identity Store | `GetUserId`    | Resolve username to User ID            |
+| Identity Store | `DescribeUser` | Get Display Name                       |
 
 ### Kiro Agent Data Location
 
-| Platform | Path |
-|----------|------|
-| Windows | `%APPDATA%\Kiro\User\globalStorage\kiro.kiroagent` |
-| macOS | `~/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent` |
-| Linux | `~/.config/Kiro/User/globalStorage/kiro.kiroagent` |
+| Platform | Path                                                                   |
+| -------- | ---------------------------------------------------------------------- |
+| Windows  | `%APPDATA%\Kiro\User\globalStorage\kiro.kiroagent`                     |
+| macOS    | `~/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent` |
+| Linux    | `~/.config/Kiro/User/globalStorage/kiro.kiroagent`                     |
 
 ## Development
 
@@ -152,12 +136,12 @@ npm run watch
 
 ### Common Issues
 
-| Issue | Solution |
-|-------|----------|
-| User resolution fails | Check Identity Store ID and credentials |
-| S3 permission denied | Verify IAM policy has PutObject permission |
-| No data found | Ensure Kiro agent directory exists with activity data |
-| Upload fails | Check S3 prefix format (must start with `s3://`) |
+| Issue                 | Solution                                              |
+| --------------------- | ----------------------------------------------------- |
+| User resolution fails | Check Identity Store ID and credentials               |
+| S3 permission denied  | Verify IAM policy has PutObject permission            |
+| No data found         | Ensure Kiro agent directory exists with activity data |
+| Upload fails          | Check S3 prefix format (must start with `s3://`)      |
 
 ### View Logs
 
@@ -167,11 +151,3 @@ npm run watch
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.
-
-## License
-
-MIT
-
-## Credits
-
-Original project by [DiscreteTom](https://github.com/DiscreteTom/kiro-metrics-exporter)
