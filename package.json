@@ -2,7 +2,7 @@
   "name": "kiro-metrics-exporter",
   "displayName": "Kiro Metrics Exporter",
   "description": "Export metrics to AWS S3",
-  "version": "1.1.4",
+  "version": "1.1.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/example/kiro-metrics-exporter.git"
@@ -23,7 +23,7 @@
       "properties": {
         "metricsExporter.version": {
           "type": "null",
-          "markdownDescription": "---\n\n### 📊 Kiro Metrics Exporter v1.1.4\n\n---",
+          "markdownDescription": "---\n\n### 📊 Kiro Metrics Exporter \n\n---",
           "scope": "application",
           "order": 0
         },
