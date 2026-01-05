@@ -63,7 +63,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial release by DiscreteTom
 - Basic metrics collection from Kiro agent directory
 - S3 upload functionality
 - Time-filtered exports (Last 7 Days, All Till Yesterday)
