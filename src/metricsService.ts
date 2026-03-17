@@ -231,7 +231,7 @@ export class MetricsService {
 
         // Open Settings
         vscode.commands.registerCommand('metricsExporter.openSettings', async () => {
-            vscode.commands.executeCommand('workbench.action.openSettings', '@ext:undefined_publisher.kiro-metrics-exporter');
+            vscode.commands.executeCommand('workbench.action.openSettings', '@ext:DiscreteTom.kiro-metrics-exporter');
         });
 
         // Register commands for time-filtered metrics export
@@ -503,7 +503,7 @@ export class MetricsService {
     /**
      * Export metrics with time filter
      */
-    async exportMetricsWithTimeFilter(filterType: 'lastWeek' | 'allTillYesterday') {
+    async exportMetricsWithTimeFilter(filterType: 'lastWeek' | 'allTillYesterday', silent: boolean = false) {
         const logContext = filterType === 'allTillYesterday' ? 'Upload All Till Yesterday' : 'Upload Last 7 Days';
         const filterLabel = filterType === 'allTillYesterday' ? 'all data till yesterday' : 'last week (T-7 to T-1)';
         const totalStartTime = Date.now();
@@ -518,8 +518,8 @@ export class MetricsService {
         logger.info(logContext, `========== Operation Started ==========`);
         logger.info(logContext, `User: ${username}, UserId: ${userId}`);
         logger.info(logContext, `S3 Prefix: ${s3Prefix}, Region: ${s3Region}`);
-        logger.info(logContext, `Filter Type: ${filterType}`);
-        vscode.window.showInformationMessage(`Starting ${filterLabel} metrics export...`);
+        logger.info(logContext, `Filter Type: ${filterType}, Silent: ${silent}`);
+        if (!silent) { vscode.window.showInformationMessage(`Starting ${filterLabel} metrics export...`); }
 
         if (!this.initializeS3()) {
             logger.error(logContext, 'Failed - S3 initialization failed (missing credentials or configuration)');
@@ -540,7 +540,7 @@ export class MetricsService {
             // === Scanning Phase ===
             const scanStartTime = Date.now();
             logger.info(logContext, `[Scanning] Started - Directory: ${kiroAgentPath}`);
-            vscode.window.showInformationMessage(`Scanning directory: ${kiroAgentPath}`);
+            if (!silent) { vscode.window.showInformationMessage(`Scanning directory: ${kiroAgentPath}`); }
 
             // Use the same scanning logic as the standalone version
             const results = scanKiroAgentDirectory(kiroAgentPath);
@@ -566,7 +566,7 @@ export class MetricsService {
             // Check if we have data in the filtered range
             if (Object.keys(filteredDailyStats).length === 0) {
                 logger.warn(logContext, `[Filter] No data found for date range`);
-                vscode.window.showWarningMessage(`No data found for ${filterLabel}`);
+                if (!silent) { vscode.window.showWarningMessage(`No data found for ${filterLabel}`); }
                 return;
             }
 
@@ -578,7 +578,7 @@ export class MetricsService {
 
             const daysCount = Object.keys(filteredDailyStats).length;
             logger.info(logContext, `[Filter] Found ${daysCount} days of data to upload`);
-            vscode.window.showInformationMessage(`Found ${daysCount} days of data for ${filterLabel}`);
+            if (!silent) { vscode.window.showInformationMessage(`Found ${daysCount} days of data for ${filterLabel}`); }
             
             // === Upload Phase ===
             const uploadStartTime = Date.now();
@@ -596,7 +596,7 @@ export class MetricsService {
                     const fullS3Path = `s3://${bucket}/${key}`;
                     
                     // Upload to S3 with proper path structure
-                    await this.uploadDayCSVToS3(csvData, date, userId, s3Prefix, filterType);
+                    await this.uploadDayCSVToS3(csvData, date, userId, s3Prefix, filterType, silent);
                     uploadCount++;
                     logger.info(logContext, `[Upload] ${uploadCount}/${daysCount} - ${date} -> ${fullS3Path}`);
                 } catch (error: any) {
@@ -610,7 +610,7 @@ export class MetricsService {
             
             // === Generate and Log Report ===
             const report = generateReport(results);
-            this.showReportInOutput(report);
+            if (!silent) { this.showReportInOutput(report); }
             
             // Log the full report
             logger.info(logContext, `[Report] Kiro Code Generation Statistics:`);
@@ -627,7 +627,7 @@ export class MetricsService {
             logger.info(logContext, `Total Time: ${totalElapsed}s (Scan: ${scanElapsed}s, Upload: ${uploadElapsed}s)`);
             logger.info(logContext, `Files Uploaded: ${uploadCount}/${daysCount}`);
             
-            vscode.window.showInformationMessage(`${filterLabel} metrics exported successfully! Uploaded ${uploadCount} files.`);
+            if (!silent) { vscode.window.showInformationMessage(`${filterLabel} metrics exported successfully! Uploaded ${uploadCount} files.`); }
         } catch (error: any) {
             const totalElapsed = ((Date.now() - totalStartTime) / 1000).toFixed(2);
             logger.error(logContext, `========== Operation Failed ==========`);
@@ -811,7 +811,7 @@ export class MetricsService {
         outputChannel.show();
     }
 
-    private async uploadDayCSVToS3(csvData: string, date: string, userId: string, s3Prefix: string, filterType?: 'lastWeek' | 'allTillYesterday'): Promise<void> {
+    private async uploadDayCSVToS3(csvData: string, date: string, userId: string, s3Prefix: string, filterType?: 'lastWeek' | 'allTillYesterday', silent: boolean = false): Promise<void> {
         if (!this.s3Client) {
             throw new Error('S3 client not initialized');
         }
@@ -833,14 +833,16 @@ export class MetricsService {
                 }
             });
 
-            vscode.window.showInformationMessage(`Uploading CSV to S3: s3://${bucket}/${key}`);
+            if (!silent) { vscode.window.showInformationMessage(`Uploading CSV to S3: s3://${bucket}/${key}`); }
             
             await this.s3Client.send(command);
             
             const filterLabel = filterType ? ` (${filterType === 'allTillYesterday' ? 'all till yesterday' : 'last week'})` : '';
-            vscode.window.showInformationMessage(
-                `✅ Successfully uploaded CSV for ${date}${filterLabel} to S3: s3://${bucket}/${key}`
-            );
+            if (!silent) {
+                vscode.window.showInformationMessage(
+                    `Successfully uploaded CSV for ${date}${filterLabel} to S3: s3://${bucket}/${key}`
+                );
+            }
             
             console.log(`CSV metrics uploaded successfully (idempotent):
                 S3: s3://${bucket}/${key}
