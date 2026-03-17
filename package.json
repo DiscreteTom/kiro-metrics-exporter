@@ -2,7 +2,7 @@
   "name": "kiro-metrics-exporter",
   "displayName": "Kiro Metrics Exporter",
   "description": "Export metrics to AWS S3",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "publisher": "DiscreteTom",
   "author": {
     "name": "DiscreteTom",
@@ -115,6 +115,24 @@
           "markdownDescription": "**[Step 3]** AWS region for S3 operations",
           "scope": "application",
           "order": 9
+        },
+        "metricsExporter.autoUpload.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "[Auto Upload] Enable automatic periodic upload",
+          "markdownDescription": "**[Auto Upload]** Enable automatic periodic upload of metrics. When enabled, metrics will be uploaded automatically at the configured interval.",
+          "scope": "application",
+          "order": 10
+        },
+        "metricsExporter.autoUpload.intervalHours": {
+          "type": "number",
+          "default": 8,
+          "minimum": 1,
+          "maximum": 168,
+          "description": "[Auto Upload] Upload interval in hours (default: 8)",
+          "markdownDescription": "**[Auto Upload]** How often to automatically upload metrics (in hours). Default is **8 hours**. Range: 1-168 (1 hour to 7 days).",
+          "scope": "application",
+          "order": 11
         }
       }
     },

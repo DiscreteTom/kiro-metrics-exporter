@@ -14,7 +14,7 @@ export class MetricsExporterProvider implements vscode.TreeDataProvider<ConfigIt
      * Get extension version from package.json
      */
     private getExtensionVersion(): string {
-        const extension = vscode.extensions.getExtension('undefined_publisher.kiro-metrics-exporter');
+        const extension = vscode.extensions.getExtension('DiscreteTom.kiro-metrics-exporter');
         if (extension) {
             return extension.packageJSON.version || 'unknown';
         }
