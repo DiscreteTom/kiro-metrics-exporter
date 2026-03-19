@@ -5,6 +5,17 @@ All notable changes to the Kiro Metrics Exporter extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-03-19
+
+### Added
+
+- Upload Today command and toolbar button for uploading current day metrics
+- Upload Today button appears leftmost in the toolbar
+
+### Changed
+
+- Auto-upload enabled by default (`metricsExporter.autoUpload.enabled` default changed from `false` to `true`)
+
 ## [1.2.0] - 2026-03-17
 
 ### Added
@@ -83,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AWS Identity Store integration for user lookup
 - Configuration panel in Explorer sidebar
 
+[1.3.0]: https://github.com/DiscreteTom/kiro-metrics-exporter/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/DiscreteTom/kiro-metrics-exporter/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/DiscreteTom/kiro-metrics-exporter/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/DiscreteTom/kiro-metrics-exporter/releases/tag/v1.0.0
