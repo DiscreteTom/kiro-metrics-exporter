@@ -239,6 +239,10 @@ export class MetricsService {
             await this.exportMetricsWithTimeFilter('lastWeek');
         });
 
+        vscode.commands.registerCommand('metricsExporter.uploadToday', async () => {
+            await this.exportMetricsWithTimeFilter('today');
+        });
+
         vscode.commands.registerCommand('metricsExporter.uploadAllTillYesterday', async () => {
             // Show confirmation dialog before uploading all data
             const confirm = await vscode.window.showWarningMessage(
@@ -462,19 +466,26 @@ export class MetricsService {
      * Get date range for filtering
      * @param filterType 'allTillYesterday' for all data up to T-1, 'lastWeek' for T-7 to T-1
      */
-    private getDateRange(filterType: 'allTillYesterday' | 'lastWeek'): { startDate: Date; endDate: Date } {
+    private getDateRange(filterType: 'allTillYesterday' | 'lastWeek' | 'today'): { startDate: Date; endDate: Date } {
         const today = new Date();
         
-        // Create end date (yesterday) at end of day in local time (23:59:59.999)
-        const endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 23, 59, 59, 999);
-        
         let startDate: Date;
-        if (filterType === 'allTillYesterday') {
-            // Set to a very early date to include all available data (start of day)
-            startDate = new Date(2020, 0, 1, 0, 0, 0, 0); // January 1, 2020 00:00:00 in local time
+        let endDate: Date;
+
+        if (filterType === 'today') {
+            // Today only: start of today to end of today
+            startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+            endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
         } else {
-            // Last week: 7 days ago at start of day in local time (00:00:00)
-            startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7, 0, 0, 0, 0);
+            // End date is yesterday for non-today filters
+            endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 23, 59, 59, 999);
+            if (filterType === 'allTillYesterday') {
+                // Set to a very early date to include all available data (start of day)
+                startDate = new Date(2020, 0, 1, 0, 0, 0, 0); // January 1, 2020 00:00:00 in local time
+            } else {
+                // Last week: 7 days ago at start of day in local time (00:00:00)
+                startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7, 0, 0, 0, 0);
+            }
         }
         
         return { startDate, endDate };
@@ -503,9 +514,19 @@ export class MetricsService {
     /**
      * Export metrics with time filter
      */
-    async exportMetricsWithTimeFilter(filterType: 'lastWeek' | 'allTillYesterday', silent: boolean = false) {
-        const logContext = filterType === 'allTillYesterday' ? 'Upload All Till Yesterday' : 'Upload Last 7 Days';
-        const filterLabel = filterType === 'allTillYesterday' ? 'all data till yesterday' : 'last week (T-7 to T-1)';
+    async exportMetricsWithTimeFilter(filterType: 'lastWeek' | 'allTillYesterday' | 'today', silent: boolean = false) {
+        const logContextMap: Record<string, string> = {
+            'allTillYesterday': 'Upload All Till Yesterday',
+            'lastWeek': 'Upload Last 7 Days',
+            'today': 'Upload Today'
+        };
+        const filterLabelMap: Record<string, string> = {
+            'allTillYesterday': 'all data till yesterday',
+            'lastWeek': 'last week (T-7 to T-1)',
+            'today': 'today only'
+        };
+        const logContext = logContextMap[filterType];
+        const filterLabel = filterLabelMap[filterType];
         const totalStartTime = Date.now();
         
         // Get user info for logging
@@ -811,7 +832,7 @@ export class MetricsService {
         outputChannel.show();
     }
 
-    private async uploadDayCSVToS3(csvData: string, date: string, userId: string, s3Prefix: string, filterType?: 'lastWeek' | 'allTillYesterday', silent: boolean = false): Promise<void> {
+    private async uploadDayCSVToS3(csvData: string, date: string, userId: string, s3Prefix: string, filterType?: 'lastWeek' | 'allTillYesterday' | 'today', silent: boolean = false): Promise<void> {
         if (!this.s3Client) {
             throw new Error('S3 client not initialized');
         }
@@ -837,7 +858,12 @@ export class MetricsService {
             
             await this.s3Client.send(command);
             
-            const filterLabel = filterType ? ` (${filterType === 'allTillYesterday' ? 'all till yesterday' : 'last week'})` : '';
+            const filterLabelMap: Record<string, string> = {
+                'allTillYesterday': 'all till yesterday',
+                'lastWeek': 'last week',
+                'today': 'today'
+            };
+            const filterLabel = filterType ? ` (${filterLabelMap[filterType] || filterType})` : '';
             if (!silent) {
                 vscode.window.showInformationMessage(
                     `Successfully uploaded CSV for ${date}${filterLabel} to S3: s3://${bucket}/${key}`

@@ -118,7 +118,7 @@
         },
         "metricsExporter.autoUpload.enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "[Auto Upload] Enable automatic periodic upload",
           "markdownDescription": "**[Auto Upload]** Enable automatic periodic upload of metrics. When enabled, metrics will be uploaded automatically at the configured interval.",
           "scope": "application",
@@ -204,6 +204,11 @@
         "title": "Metrics Exporter: Open Settings"
       },
       {
+        "command": "metricsExporter.uploadToday",
+        "title": "📅 Upload Today",
+        "icon": "$(calendar)"
+      },
+      {
         "command": "metricsExporter.uploadLastWeek",
         "title": "⏱️ Upload Last 7 Days",
         "icon": "$(history)"
@@ -217,14 +222,19 @@
     "menus": {
       "view/title": [
         {
+          "command": "metricsExporter.uploadToday",
+          "when": "view == metricsExporter",
+          "group": "navigation@1"
+        },
+        {
           "command": "metricsExporter.uploadLastWeek",
           "when": "view == metricsExporter",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "command": "metricsExporter.uploadAllTillYesterday",
           "when": "view == metricsExporter",
-          "group": "navigation"
+          "group": "navigation@3"
         }
       ]
     }
